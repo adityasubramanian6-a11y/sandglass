@@ -16,21 +16,28 @@ The whole process takes about 20 minutes the first time, mostly waiting for Xcod
 
 ## 3. Get the project onto your Mac
 
-1. Download **Sandglass.zip** from the project thread (or the GitHub repo once it's there).
-2. Double-click the zip to unzip it. You get a folder called **pomodoro-hourglass**.
-3. Open that folder and double-click **Sandglass.xcodeproj**. Xcode opens the project.
+Open **Terminal** and paste these lines (replace `yourname` with anything unique, e.g. `adit`):
+
+```
+brew install xcodegen
+git clone https://github.com/adityasubramanian6-a11y/sandglass.git ~/sandglass
+cd ~/sandglass
+sed -i '' 's/com.example.sandglass/com.yourname.sandglass/g' project.yml
+xcodegen generate
+open Sandglass.xcodeproj
+```
+
+No Homebrew? Install it first from https://brew.sh (one line in Terminal).
 
 ## 4. Sign the app with your Apple ID
 
 1. In Xcode's left sidebar, click the blue **Sandglass** icon at the very top.
-2. In the middle panel, under **TARGETS**, click **Sandglass**, then the **Signing & Capabilities** tab.
-3. Make sure **Automatically manage signing** is ticked, and set **Team** to your name (Personal Team).
-4. Under **TARGETS**, click **SandglassWidgetExtension** and set the same **Team** there too.
-5. If a red error says the bundle identifier isn't available:
-   - Click the blue **Sandglass** project icon again, but this time select **Sandglass** under **PROJECT** (not TARGETS).
-   - Open the **Build Settings** tab, type `BASE_BUNDLE_ID` in the search box.
-   - Double-click the value `com.example.sandglass` and change it to something unique, e.g. `com.adit.sandglass`.
-6. If a red error mentions **App Groups**: on each target's Signing & Capabilities tab, click the small **trash/×** next to the **App Groups** section to remove it. Everything still works except that the widgets always say "Flip your iPhone to start".
+2. Under **TARGETS**, click **Sandglass**, then the **Signing & Capabilities** tab.
+3. Tick **Automatically manage signing** and set **Team** to your name (Personal Team).
+4. Under **TARGETS**, click **SandglassWidgets** and set the same **Team** there too.
+5. If a red error mentions **App Groups**: on each target's Signing & Capabilities tab, click the small
+   **×** next to **App Groups** to remove it. Everything still works except that the widgets always say
+   "Flip your iPhone to start".
 
 ## 5. Get your iPhone ready (one time)
 
@@ -39,7 +46,7 @@ The whole process takes about 20 minutes the first time, mostly waiting for Xcod
 
 ## 6. Run it
 
-1. At the top of the Xcode window, click the device menu (it may say "Any iOS Device" or a simulator name) and pick **your iPhone**.
+1. At the top of the Xcode window, make sure the scheme says **Sandglass**, then click the device menu (it may say "Any iOS Device" or a simulator name) and pick **your iPhone**.
 2. Press the **▶ Run** button (or **⌘R**). The first build takes a minute or two.
 3. The first time, the iPhone may refuse to open the app with "Untrusted Developer". On the iPhone go to **Settings › General › VPN & Device Management**, tap your Apple ID under **Developer App**, and tap **Trust**.
 4. Press **▶ Run** again. Sandglass opens on your phone.

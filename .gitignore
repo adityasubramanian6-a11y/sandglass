@@ -1,5 +1,9 @@
+*.xcodeproj/
 xcuserdata/
-*.xcuserstate
 DerivedData/
-.DS_Store
 build/
+.DS_Store
+Sandglass/Info.plist
+Sandglass/*.entitlements
+SandglassWidget/Info.plist
+SandglassWidget/*.entitlements

@@ -32,30 +32,22 @@ Defaults: 25-minute focus, 5-minute short break, and a 15-minute long break afte
 sessions. All of these can be changed in Settings (the slider button), along with sound, haptics
 and keep-screen-on.
 
-## Run it on your iPhone
+## Build it on your Mac
 
-You need a Mac with **Xcode 16 or newer** and an iPhone on **iOS 17 or newer**.
+1. Install Xcode (16 or newer) and XcodeGen: `brew install xcodegen`
+2. In this folder: `xcodegen generate`, then open `Sandglass.xcodeproj`.
+3. In `project.yml`, replace `com.example.sandglass` with your own id everywhere (one line does it:
+   `sed -i '' 's/com.example.sandglass/com.yourname.sandglass/g' project.yml`), then re-run `xcodegen generate`.
+4. Select each target (**Sandglass** and **SandglassWidgets**) > Signing & Capabilities > pick your Team
+   (a free Apple ID works; apps then expire after 7 days).
+5. Plug in your iPhone, choose the **Sandglass** scheme and your iPhone, press Run. The widgets install alongside.
 
-1. Unzip and double-click `Sandglass.xcodeproj`.
-2. In Xcode, click the **Sandglass** project in the left sidebar. Open **Signing & Capabilities**
-   and pick your Apple ID under **Team** for **both** targets: **Sandglass** and
-   **SandglassWidgetExtension** (add your Apple ID in Xcode › Settings › Accounts if it isn't listed).
-3. Bundle identifiers come from one setting. If Xcode says one is taken, select the **Sandglass
-   project** (not a target), open **Build Settings**, search for `BASE_BUNDLE_ID` and change
-   `com.example.sandglass` to something unique, such as `com.yourname.sandglass`. The widget's ID
-   and the shared app group follow automatically.
-   If signing complains about **App Groups** (some free accounts can't use them), remove the App
-   Groups capability from both targets. The Live Activity still works; the widgets then just show
-   "Flip your iPhone to start".
-4. Plug in your iPhone (or pick it from the wireless device list), select it as the run
-   destination at the top of the window, and press **Run** (⌘R).
-5. The first time, the iPhone will block the app as coming from an untrusted developer. Go to
-   **Settings › General › VPN & Device Management**, tap your Apple ID, and choose **Trust**.
-   On iOS 16+ you may also need to turn on **Settings › Privacy & Security › Developer Mode**
-   and restart the phone.
+Widgets read the running session through a shared App Group (`group.com.example.sandglass`, renamed with
+the rest of the ids). If Xcode can't sign the App Groups capability with your team, remove it from both
+targets: the Lock Screen Live Activity still works, and the widgets just show "Flip your iPhone to start".
 
-Apps signed with a free Apple ID expire after 7 days; run it from Xcode again to refresh it.
 The iOS Simulator has no motion sensors, so there you turn the hourglass by tapping it.
+[RUN-ON-IPHONE.md](RUN-ON-IPHONE.md) walks through every click, including the first-time iPhone setup.
 
 ## Code map
 
@@ -72,6 +64,6 @@ The iOS Simulator has no motion sensors, so there you turn the hourglass by tapp
 | `Shared/` | Used by the app and the widget extension: geometry, phases, settings, the session snapshot and the small hourglass |
 | `SandglassWidget/` | The Live Activity, Dynamic Island and widget views |
 
-If Xcode ever refuses to open the project file, create a new iOS App project named
-Sandglass (SwiftUI, Swift), delete its generated `ContentView.swift` and `SandglassApp.swift`,
-and drag in the files from the `Sandglass` folder.
+If XcodeGen gives you trouble, create a new project in Xcode with the **iOS App** template (SwiftUI, Swift)
+named Sandglass, delete the template's Swift files, drag `Sandglass/` + `Shared/` into the app target, then
+add a **Widget Extension** target (with Live Activity) and drag `SandglassWidget/` + `Shared/` into it.
