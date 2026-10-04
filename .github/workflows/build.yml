@@ -54,8 +54,14 @@ jobs:
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
           APP=$(find build/Build/Products -maxdepth 2 -name Sandglass.app -path "*iphonesimulator*" | head -1)
+          plutil -p "$APP/Info.plist"
+          ls -R "$APP" | head -60
+          codesign -dvv "$APP" 2>&1 | head -12 || true
           xcrun simctl install "$UDID" "$APP"
           sleep 20
+          echo "Control: launching Settings"
+          xcrun simctl launch "$UDID" com.apple.Preferences || true
+          sleep 5
           # Launch in the background so a hang can be caught and sampled.
           xcrun simctl launch --stdout=app-stdout.log --stderr=app-stderr.log "$UDID" com.example.sandglass > launch.log 2>&1 &
           sleep 25
@@ -70,6 +76,9 @@ jobs:
           xcrun simctl spawn "$UDID" log show --last 2m --style compact \
             --predicate 'process == "Sandglass" AND messageType >= 16' > app-errors.log || true
           tail -40 app-errors.log
+          echo "---- system log mentioning sandglass ----"
+          xcrun simctl spawn "$UDID" log show --last 4m --style compact \
+            --predicate 'eventMessage CONTAINS[c] "sandglass"' | grep -v "^Timestamp" | tail -60 || true
           cat app-stderr.log 2>/dev/null | tail -20 || true
           wait || true
           cat launch.log
