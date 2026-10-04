@@ -7,6 +7,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-15
@@ -103,3 +106,13 @@ jobs:
             screenshot-*.png
             Sandglass*.ips
           if-no-files-found: ignore
+
+      - name: Publish the screenshots to the ci-screenshots branch
+        if: always()
+        run: |
+          mkdir -p /tmp/shots && cp screenshot-*.png /tmp/shots/ 2>/dev/null || exit 0
+          cd /tmp/shots
+          git init -q -b ci-screenshots
+          git -c user.name=ci -c user.email=ci@example.com add -A
+          git -c user.name=ci -c user.email=ci@example.com commit -q -m "Screenshots for ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" ci-screenshots
