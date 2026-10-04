@@ -75,11 +75,15 @@ struct SandWidgetView: View {
     private func content(snapshot: SessionSnapshot, palette: Palette) -> some View {
         switch family {
         case .accessoryCircular:
-            ZStack {
-                AccessoryWidgetBackground()
-                MiniHourglass(snapshot: snapshot, isDone: entry.isDone)
-                    .padding(7)
+            // The whole circle is a play / pause button.
+            Button(intent: ToggleSandIntent()) {
+                ZStack {
+                    AccessoryWidgetBackground()
+                    MiniHourglass(snapshot: snapshot, isDone: entry.isDone)
+                        .padding(7)
+                }
             }
+            .buttonStyle(.plain)
         case .accessoryRectangular:
             HStack(spacing: 8) {
                 MiniHourglass(snapshot: snapshot, isDone: entry.isDone)
@@ -113,6 +117,14 @@ struct SandWidgetView: View {
                         .font(.system(size: 28, weight: .light, design: .rounded))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.leading)
+                    Button(intent: ToggleSandIntent()) {
+                        Image(systemName: snapshot.mode == .running && !entry.isDone ? "pause.fill" : "play.fill")
+                            .font(.caption.weight(.bold))
+                            .frame(width: 28, height: 28)
+                            .background(Circle().fill(palette.sand.opacity(0.25)))
+                            .foregroundStyle(palette.sand)
+                    }
+                    .buttonStyle(.plain)
                     HStack(spacing: 4) {
                         ForEach(0..<max(1, snapshot.sessionsPerCycle), id: \.self) { index in
                             Circle()

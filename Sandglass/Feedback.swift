@@ -1,4 +1,3 @@
-import AudioToolbox
 import UIKit
 import UserNotifications
 
@@ -23,7 +22,7 @@ enum Feedback {
             UINotificationFeedbackGenerator().notificationOccurred(.success)
         }
         if Prefs.soundOn {
-            AudioServicesPlaySystemSound(SystemSoundID(1005))
+            SoundEngine.shared.playChime()
         }
     }
 
@@ -36,7 +35,7 @@ enum Feedback {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
-        content.sound = Prefs.soundOn ? UNNotificationSound.default : nil
+        content.sound = Prefs.soundOn ? UNNotificationSound(named: UNNotificationSoundName(Chime.current.fileName)) : nil
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: seconds, repeats: false)
         let request = UNNotificationRequest(identifier: notificationID, content: content, trigger: trigger)
         UNUserNotificationCenter.current().add(request)

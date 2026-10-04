@@ -21,6 +21,9 @@ enum SandStatus: Equatable {
 @MainActor
 @Observable
 final class HourglassModel {
+    /// One model for the whole app, so the Lock Screen buttons (App Intents) can reach it.
+    static let shared = HourglassModel()
+
     // MARK: Drawn every frame
 
     /// Share of the sand in the hourglass's own upper bulb (0...1).
@@ -55,8 +58,14 @@ final class HourglassModel {
     @ObservationIgnored private var isOnSide = false
     @ObservationIgnored private var lastScreenGravity = Vec.down
     @ObservationIgnored private var pourTarget: Double?
-    @ObservationIgnored private var suspendedAt: Date?
-    @ObservationIgnored private var wasFlowingWhenSuspended = false
+    /// While nothing is ticking (app suspended), when the sand was last brought up to date.
+    @ObservationIgnored private var lastAdvance: Date?
+    @ObservationIgnored private var isForeground = false
+    /// Keeps the physics running behind the Lock Screen while a focus sound plays.
+    @ObservationIgnored private var backgroundTimer: Timer?
+    @ObservationIgnored private var lastBackgroundStep: Date?
+    @ObservationIgnored private var finishedWaitingSince: Date?
+    @ObservationIgnored private var lastBackgroundState: String = ""
     @ObservationIgnored private var askedForNotifications = false
     @ObservationIgnored private var wantsNotificationPrompt = false
     @ObservationIgnored private var liveActivity: LiveActivityController?
@@ -78,13 +87,22 @@ final class HourglassModel {
 
     // MARK: Lifecycle
 
+    private var isTicking: Bool { displayLink != nil || backgroundTimer != nil }
+
+    private var liveActivityController: LiveActivityController {
+        if let liveActivity { return liveActivity }
+        let controller = LiveActivityController()
+        liveActivity = controller
+        return controller
+    }
+
     func resume() {
+        isForeground = true
+        stopBackgroundLoop()
         motion.start()
-        if liveActivity == nil { liveActivity = LiveActivityController() }
-        if let suspendedAt, wasFlowingWhenSuspended {
-            advanceSand(by: Date().timeIntervalSince(suspendedAt), silently: true)
-        }
-        suspendedAt = nil
+        _ = liveActivityController
+        catchUp()
+        lastAdvance = nil
         defaults.removeObject(forKey: Key.suspendedAt)
         Feedback.cancelNotifications()
         refreshStatus()
@@ -99,22 +117,137 @@ final class HourglassModel {
     }
 
     func suspend() {
+        isForeground = false
         displayLink?.invalidate()
         displayLink = nil
-        motion.stop()
         UIApplication.shared.isIdleTimerDisabled = false
 
-        suspendedAt = Date()
-        wasFlowingWhenSuspended = status == .running
+        if SoundEngine.shared.isRunning {
+            // Background audio keeps the app awake, so the sand keeps following gravity:
+            // flipping the locked phone still starts, reverses or pauses it.
+            startBackgroundLoop()
+        } else {
+            goToSleep()
+        }
         save()
+        scheduleFinishNotification()
+    }
 
+    /// Nothing will tick until the app comes back; remember when, so the sand can catch up.
+    private func goToSleep() {
+        stopBackgroundLoop()
+        motion.stop()
+        lastAdvance = Date()
+        save()
+    }
+
+    /// Brings the sand up to date after a stretch with nothing ticking.
+    private func catchUp() {
+        guard !isTicking, let last = lastAdvance else { return }
+        let now = Date()
         if status == .running {
-            let next = nextPhase
-            let title = phase == .focus ? "Focus session complete" : "Break's over"
-            let body = phase == .focus
-                ? "Time for a \(Prefs.minutes(for: next))-minute \(next == .longBreak ? "long " : "")break. Flip the hourglass when you're ready."
-                : "Flip the hourglass to start your next focus session."
-            Feedback.scheduleFinish(in: sourceSand * phaseSeconds, title: title, body: body)
+            advanceSand(by: now.timeIntervalSince(last), silently: true)
+        }
+        lastAdvance = now
+        refreshStatus()
+    }
+
+    private func startBackgroundLoop() {
+        guard backgroundTimer == nil else { return }
+        lastBackgroundStep = Date()
+        backgroundTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.backgroundTick()
+            }
+        }
+    }
+
+    private func stopBackgroundLoop() {
+        backgroundTimer?.invalidate()
+        backgroundTimer = nil
+        lastBackgroundStep = nil
+    }
+
+    private func backgroundTick() {
+        let now = Date()
+        let dt = min(max(now.timeIntervalSince(lastBackgroundStep ?? now), 0), 1)
+        lastBackgroundStep = now
+        step(dt: dt)
+
+        // Keep the "time's up" notification right when the sand changes direction or pauses.
+        let state = "\(status)|\(flowDirection)|\(phase)"
+        if state != lastBackgroundState {
+            lastBackgroundState = state
+            scheduleFinishNotification()
+            save()
+        }
+        // Once the focus sound has faded out, iOS will suspend the app: stop cleanly first.
+        if !SoundEngine.shared.isRunning {
+            goToSleep()
+            scheduleFinishNotification()
+        }
+    }
+
+    private func scheduleFinishNotification() {
+        Feedback.cancelNotifications()
+        guard !isForeground, status == .running else { return }
+        let next = nextPhase
+        let title = phase == .focus ? "Focus session complete" : "Break's over"
+        let body = phase == .focus
+            ? "Time for a \(Prefs.minutes(for: next))-minute \(next == .longBreak ? "long " : "")break. Flip the hourglass when you're ready."
+            : "Flip the hourglass to start your next focus session."
+        Feedback.scheduleFinish(in: sourceSand * phaseSeconds, title: title, body: body)
+    }
+
+    // MARK: Lock Screen and widget buttons
+
+    func handle(_ command: SessionCommand) {
+        catchUp()
+        switch command {
+        case .start:
+            if status == .idle { turnOver() }
+        case .togglePause:
+            if status == .idle { turnOver() } else { togglePause() }
+        case .restart:
+            restartPhase()
+        case .stop:
+            stopSession()
+        case .skip:
+            skipPhase()
+        }
+
+        guard !isTicking else { return }
+        // Nothing is animating, so settle everything now and tell the Lock Screen.
+        if let pour = pourTarget {
+            topSand = pour
+            pourTarget = nil
+        }
+        refreshStatus()
+        lastAdvance = Date()
+        if let snapshot = makeSnapshot() { liveActivityController.sync(snapshot) }
+
+        // If a focus sound is chosen, start it and keep following gravity behind the Lock Screen.
+        updateSound()
+        if SoundEngine.shared.isRunning {
+            motion.start()
+            lastAdvance = nil
+            startBackgroundLoop()
+        }
+        scheduleFinishNotification()
+        save()
+    }
+
+    /// Turns the hourglass over. On screen this animates; with nothing ticking it happens at once.
+    private func turnOver() {
+        if isTicking {
+            flipByTap()
+        } else {
+            targetRotation += .pi
+            rotation = targetRotation
+            flowDirection = -flowDirection
+            localGravity = Vec(x: localGravity.x, y: -localGravity.y)
+            lastFinished = nil
         }
     }
 
@@ -167,6 +300,11 @@ final class HourglassModel {
         let now = link.targetTimestamp
         let dt = min(max(now - (lastTimestamp ?? now), 0), 0.25)
         lastTimestamp = now
+        step(dt: dt)
+    }
+
+    /// One step of the simulation, from the display link on screen or the background timer.
+    private func step(dt: Double) {
         clock += dt
 
         // 1. Animate a tap-flip.
@@ -224,17 +362,42 @@ final class HourglassModel {
         refreshStatus()
 
         // Side effects that need a running app (so they live here, not in refreshStatus, which also runs in init).
-        let keepAwake = Prefs.keepAwake && status == .running
-        if UIApplication.shared.isIdleTimerDisabled != keepAwake {
-            UIApplication.shared.isIdleTimerDisabled = keepAwake
+        if isForeground {
+            let keepAwake = Prefs.keepAwake && status == .running
+            if UIApplication.shared.isIdleTimerDisabled != keepAwake {
+                UIApplication.shared.isIdleTimerDisabled = keepAwake
+            }
         }
+        updateSound()
         if wantsNotificationPrompt {
             wantsNotificationPrompt = false
             Feedback.requestNotificationPermission()
         }
         if let snapshot = makeSnapshot() {
-            liveActivity?.sync(snapshot)
+            liveActivityController.sync(snapshot)
         }
+    }
+
+    /// Focus sounds play while a session is on, quieter while paused, and for a few minutes after
+    /// a phase ends so that flipping the locked phone can still start the next one.
+    private func updateSound() {
+        let sound = FocusSound(rawValue: Prefs.focusSoundName) ?? .off
+        var active = false
+        switch status {
+        case .running, .pausedOnSide, .pausedManually, .pouring:
+            active = true
+            finishedWaitingSince = nil
+        case .idle:
+            if lastFinished != nil {
+                let since = finishedWaitingSince ?? Date()
+                finishedWaitingSince = since
+                active = Date().timeIntervalSince(since) < 5 * 60
+            }
+        }
+        SoundEngine.shared.update(sound: sound,
+                                  active: active,
+                                  flowing: status == .running,
+                                  volume: Float(Prefs.focusVolume))
     }
 
     /// The session as the Lock Screen and widgets show it: always upright, sand draining from the top.
@@ -338,7 +501,7 @@ final class HourglassModel {
         static let rotation = "state.rotation"
         static let paused = "state.paused"
         static let suspendedAt = "state.suspendedAt"
-        static let flowing = "state.flowing"
+        static let onSide = "state.onSide"
         static let askedNotifications = "state.askedNotifications"
     }
 
@@ -349,8 +512,8 @@ final class HourglassModel {
         defaults.set(flowDirection, forKey: Key.direction)
         defaults.set(targetRotation, forKey: Key.rotation)
         defaults.set(isManuallyPaused, forKey: Key.paused)
-        defaults.set(suspendedAt?.timeIntervalSince1970, forKey: Key.suspendedAt)
-        defaults.set(wasFlowingWhenSuspended, forKey: Key.flowing)
+        defaults.set(lastAdvance?.timeIntervalSince1970, forKey: Key.suspendedAt)
+        defaults.set(isOnSide, forKey: Key.onSide)
         defaults.set(askedForNotifications, forKey: Key.askedNotifications)
     }
 
@@ -364,10 +527,10 @@ final class HourglassModel {
         rotation = targetRotation
         localGravity = Vec.down.rotated(by: -rotation)
         isManuallyPaused = defaults.bool(forKey: Key.paused)
-        wasFlowingWhenSuspended = defaults.bool(forKey: Key.flowing)
+        isOnSide = defaults.bool(forKey: Key.onSide)
         askedForNotifications = defaults.bool(forKey: Key.askedNotifications)
         let stamp = defaults.double(forKey: Key.suspendedAt)
-        suspendedAt = stamp > 0 ? Date(timeIntervalSince1970: stamp) : nil
+        lastAdvance = stamp > 0 ? Date(timeIntervalSince1970: stamp) : nil
     }
 }
 

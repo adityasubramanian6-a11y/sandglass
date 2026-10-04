@@ -4,6 +4,7 @@ struct ContentView: View {
     @Environment(HourglassModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(Prefs.longBreakEveryKey) private var longBreakEvery = Prefs.defaultLongBreakEvery
+    @AppStorage(Prefs.focusSoundKey) private var focusSound = FocusSound.off.rawValue
     @State private var showingSettings = false
 
     var body: some View {
@@ -80,7 +81,18 @@ struct ContentView: View {
     }
 
     private func controls(palette: Palette) -> some View {
-        HStack(spacing: 36) {
+        HStack(spacing: 22) {
+            Menu {
+                Picker("Focus sound", selection: $focusSound) {
+                    ForEach(FocusSound.allCases) { sound in
+                        Label(sound.title, systemImage: sound.symbol).tag(sound.rawValue)
+                    }
+                }
+            } label: {
+                CircleIcon(systemName: (FocusSound(rawValue: focusSound) ?? .off).symbol, size: 52)
+            }
+            .accessibilityLabel("Focus sound")
+
             Menu {
                 Button("Restart \(model.phase.title.lowercased())", systemImage: "arrow.counterclockwise") {
                     model.restartPhase()

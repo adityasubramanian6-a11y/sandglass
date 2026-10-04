@@ -41,9 +41,12 @@ struct SandglassLiveActivity: Widget {
                     .foregroundStyle(palette.sand)
             }
             DynamicIslandExpandedRegion(.bottom) {
-                Text(SessionText.detail(snapshot, isDone: done))
-                    .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.7))
+                VStack(spacing: 8) {
+                    Text(SessionText.detail(snapshot, isDone: done))
+                        .font(.footnote)
+                        .foregroundStyle(.white.opacity(0.7))
+                    SessionControls(snapshot: snapshot, isDone: done, tint: palette.sand)
+                }
             }
         } compactLeading: {
             MiniHourglass(snapshot: snapshot, isDone: done)
@@ -67,24 +70,29 @@ struct LockScreenActivityView: View {
 
     var body: some View {
         let palette = Palette(phase: snapshot.phase)
-        HStack(spacing: 18) {
-            MiniHourglass(snapshot: snapshot, isDone: isDone)
-                .frame(width: 54, height: 100)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(SessionText.headline(snapshot, isDone: isDone))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(palette.sand)
-                SessionTimerText(snapshot: snapshot, isDone: isDone)
-                    .font(.system(size: 46, weight: .light, design: .rounded))
-                    .foregroundStyle(.white)
-                Text(SessionText.detail(snapshot, isDone: isDone))
-                    .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.7))
+        // Live Activities get at most 160 points of height on the Lock Screen.
+        VStack(spacing: 10) {
+            HStack(spacing: 16) {
+                MiniHourglass(snapshot: snapshot, isDone: isDone)
+                    .frame(width: 44, height: 80)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(SessionText.headline(snapshot, isDone: isDone))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(palette.sand)
+                    SessionTimerText(snapshot: snapshot, isDone: isDone)
+                        .font(.system(size: 40, weight: .light, design: .rounded))
+                        .foregroundStyle(.white)
+                    Text(SessionText.detail(snapshot, isDone: isDone))
+                        .font(.footnote)
+                        .foregroundStyle(.white.opacity(0.7))
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                CycleDots(snapshot: snapshot, color: palette.sand)
             }
-            Spacer(minLength: 0)
-            CycleDots(snapshot: snapshot, color: palette.sand)
+            SessionControls(snapshot: snapshot, isDone: isDone, tint: palette.sand)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
     }
 }

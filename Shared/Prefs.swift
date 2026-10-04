@@ -9,6 +9,9 @@ enum Prefs {
     static let soundKey = "soundOn"
     static let hapticsKey = "hapticsOn"
     static let keepAwakeKey = "keepAwake"
+    static let chimeKey = "chime"
+    static let focusSoundKey = "focusSound"
+    static let focusVolumeKey = "focusVolume"
 
     static let defaultFocusMinutes = 25
     static let defaultShortBreakMinutes = 5
@@ -24,6 +27,9 @@ enum Prefs {
             soundKey: true,
             hapticsKey: true,
             keepAwakeKey: true,
+            chimeKey: "bowl",
+            focusSoundKey: "off",
+            focusVolumeKey: 0.6,
         ])
     }
 
@@ -45,4 +51,7 @@ enum Prefs {
     static var soundOn: Bool { UserDefaults.standard.bool(forKey: soundKey) }
     static var hapticsOn: Bool { UserDefaults.standard.bool(forKey: hapticsKey) }
     static var keepAwake: Bool { UserDefaults.standard.bool(forKey: keepAwakeKey) }
+    static var chimeName: String { UserDefaults.standard.string(forKey: chimeKey) ?? "bowl" }
+    static var focusSoundName: String { UserDefaults.standard.string(forKey: focusSoundKey) ?? "off" }
+    static var focusVolume: Double { UserDefaults.standard.double(forKey: focusVolumeKey) }
 }

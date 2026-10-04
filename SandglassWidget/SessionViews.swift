@@ -73,3 +73,49 @@ enum SessionText {
         }
     }
 }
+
+/// Play / pause / restart / stop buttons. They run App Intents inside the app, so they work
+/// straight from the Lock Screen, the Dynamic Island and StandBy without unlocking into the app.
+struct SessionControls: View {
+    let snapshot: SessionSnapshot
+    let isDone: Bool
+    let tint: Color
+
+    private var waiting: Bool { isDone || snapshot.mode == .idle || snapshot.mode == .finished }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if waiting {
+                Button(intent: StartSandIntent()) {
+                    Label(startTitle, systemImage: "hourglass")
+                        .frame(maxWidth: .infinity)
+                }
+            } else {
+                Button(intent: ToggleSandIntent()) {
+                    Label(snapshot.mode == .paused ? "Resume" : "Pause",
+                          systemImage: snapshot.mode == .paused ? "play.fill" : "pause.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                Button(intent: RestartSandIntent()) {
+                    Image(systemName: "arrow.counterclockwise")
+                        .frame(width: 34)
+                }
+                .accessibilityLabel("Restart")
+                Button(intent: StopSandIntent()) {
+                    Image(systemName: "stop.fill")
+                        .frame(width: 34)
+                }
+                .accessibilityLabel("Stop")
+            }
+        }
+        .font(.subheadline.weight(.semibold))
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.capsule)
+        .tint(tint)
+    }
+
+    private var startTitle: String {
+        let upcoming = isDone ? snapshot.finishedAndUpcoming().upcoming : snapshot.phase
+        return upcoming == .focus ? "Start focus" : "Start break"
+    }
+}

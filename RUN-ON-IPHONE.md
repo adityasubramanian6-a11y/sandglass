@@ -34,7 +34,8 @@ No Homebrew? Install it first from https://brew.sh (one line in Terminal).
 1. In Xcode's left sidebar, click the blue **Sandglass** icon at the very top.
 2. Under **TARGETS**, click **Sandglass**, then the **Signing & Capabilities** tab.
 3. Tick **Automatically manage signing** and set **Team** to your name (Personal Team).
-4. Under **TARGETS**, click **SandglassWidgets** and set the same **Team** there too.
+4. Under **TARGETS**, click **SandglassWidgets** and set the same **Team** there too, then do the
+   same for **SandglassWatch**.
 5. If a red error mentions **App Groups**: on each target's Signing & Capabilities tab, click the small
    **×** next to **App Groups** to remove it. Everything still works except that the widgets always say
    "Flip your iPhone to start".
@@ -50,6 +51,11 @@ No Homebrew? Install it first from https://brew.sh (one line in Terminal).
 2. Press the **▶ Run** button (or **⌘R**). The first build takes a minute or two.
 3. The first time, the iPhone may refuse to open the app with "Untrusted Developer". On the iPhone go to **Settings › General › VPN & Device Management**, tap your Apple ID under **Developer App**, and tap **Trust**.
 4. Press **▶ Run** again. Sandglass opens on your phone.
+
+If your Apple Watch is paired with this iPhone, the watch app installs with it (open the
+**Watch** app on the iPhone › scroll to **Sandglass** › **Install** if it doesn't). To run it on
+the watch directly, pick the **SandglassWatch** scheme and your watch at the top of Xcode and
+press Run.
 
 ## 7. Try it out
 

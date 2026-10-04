@@ -7,3 +7,4 @@ Sandglass/Info.plist
 Sandglass/*.entitlements
 SandglassWidget/Info.plist
 SandglassWidget/*.entitlements
+Watch/Info.plist

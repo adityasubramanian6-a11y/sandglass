@@ -9,6 +9,9 @@ struct SettingsView: View {
     @AppStorage(Prefs.soundKey) private var soundOn = true
     @AppStorage(Prefs.hapticsKey) private var hapticsOn = true
     @AppStorage(Prefs.keepAwakeKey) private var keepAwake = true
+    @AppStorage(Prefs.chimeKey) private var chime = Chime.bowl.rawValue
+    @AppStorage(Prefs.focusSoundKey) private var focusSound = FocusSound.off.rawValue
+    @AppStorage(Prefs.focusVolumeKey) private var focusVolume = 0.6
 
     var body: some View {
         NavigationStack {
@@ -28,8 +31,40 @@ struct SettingsView: View {
                     }
                 }
 
+                Section {
+                    Picker("Focus sound", selection: $focusSound) {
+                        ForEach(FocusSound.allCases) { sound in
+                            Label(sound.title, systemImage: sound.symbol).tag(sound.rawValue)
+                        }
+                    }
+                    if focusSound != FocusSound.off.rawValue {
+                        HStack {
+                            Image(systemName: "speaker.fill").foregroundStyle(.secondary)
+                            Slider(value: $focusVolume, in: 0.05...1)
+                            Image(systemName: "speaker.wave.3.fill").foregroundStyle(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("While the sand runs")
+                } footer: {
+                    Text("Plays while a session runs, even with the phone locked. While it plays, flipping or turning the locked phone still starts, reverses or pauses the sand.")
+                }
+
+                Section("When time is up") {
+                    Toggle("Chime", isOn: $soundOn)
+                    if soundOn {
+                        Picker("Sound", selection: $chime) {
+                            ForEach(Chime.allCases) { chime in
+                                Text(chime.title).tag(chime.rawValue)
+                            }
+                        }
+                        .onChange(of: chime) { _, newValue in
+                            SoundEngine.shared.playChime(Chime(rawValue: newValue) ?? .bowl)
+                        }
+                    }
+                }
+
                 Section("Feedback") {
-                    Toggle("Chime when time is up", isOn: $soundOn)
                     Toggle("Haptics", isOn: $hapticsOn)
                     Toggle("Keep screen on while sand runs", isOn: $keepAwake)
                 }
@@ -40,6 +75,7 @@ struct SettingsView: View {
                     Label("Lying flat on a desk, the sand keeps running.", systemImage: "iphone")
                     Label("Flip it midway and the sand runs back.", systemImage: "hourglass")
                     Label("Tap the hourglass to turn it over without moving your phone.", systemImage: "hand.tap")
+                    Label("On the Lock Screen and Dynamic Island, use the play, pause and restart buttons.", systemImage: "lock.iphone")
                 }
                 .font(.callout)
             }
