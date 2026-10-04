@@ -172,7 +172,7 @@ final class WatchModel {
                 lastFinished = nil
                 if !askedForNotifications {
                     askedForNotifications = true
-                    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+                    Task { _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) }
                 }
             }
             status = newStatus

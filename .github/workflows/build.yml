@@ -29,9 +29,10 @@ jobs:
       - name: Build the iPhone app
         run: |
           set -o pipefail
+          # Signed "to run locally" so the Simulator will open it.
           xcodebuild -project Sandglass.xcodeproj -scheme Sandglass \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO build | tee build-ios.log | grep -E "error:|warning:|BUILD" || true
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= build | tee build-ios.log | grep -E "error:|warning:|BUILD" || true
           test "${PIPESTATUS[0]}" -eq 0
 
       - name: Build the watch app
@@ -54,8 +55,13 @@ jobs:
           xcrun simctl bootstatus "$UDID" -b
           APP=$(find build/Build/Products -maxdepth 2 -name Sandglass.app -path "*iphonesimulator*" | head -1)
           xcrun simctl install "$UDID" "$APP"
-          xcrun simctl launch --stdout=app-stdout.log --stderr=app-stderr.log "$UDID" com.example.sandglass
+          sleep 20
+          xcrun simctl launch --stdout=app-stdout.log --stderr=app-stderr.log "$UDID" com.example.sandglass \
+            || { sleep 30; xcrun simctl launch --stdout=app-stdout.log --stderr=app-stderr.log "$UDID" com.example.sandglass; }
           sleep 12
+          xcrun simctl spawn "$UDID" log show --last 2m --style compact \
+            --predicate 'process == "Sandglass" AND messageType >= 16' > app-errors.log || true
+          tail -40 app-errors.log
           xcrun simctl io "$UDID" screenshot screenshot-launch.png
           if xcrun simctl spawn "$UDID" launchctl list | grep -q com.example.sandglass; then
             echo "App is still running after launch"

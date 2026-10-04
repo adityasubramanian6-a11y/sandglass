@@ -27,7 +27,9 @@ enum Feedback {
     }
 
     static func requestNotificationPermission() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        // The async form: a completion handler written here would be tied to the main actor but
+        // called on a background queue, which can crash.
+        Task { _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) }
     }
 
     static func scheduleFinish(in seconds: TimeInterval, title: String, body: String) {
