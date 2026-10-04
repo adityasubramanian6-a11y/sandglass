@@ -63,7 +63,7 @@ jobs:
           xcrun simctl launch "$UDID" com.apple.Preferences || true
           sleep 5
           # Launch in the background so a hang can be caught and sampled.
-          xcrun simctl launch --stdout=app-stdout.log --stderr=app-stderr.log "$UDID" com.example.sandglass > launch.log 2>&1 &
+          xcrun simctl launch --stdout="$PWD/app-stdout.log" --stderr="$PWD/app-stderr.log" "$UDID" com.example.sandglass > launch.log 2>&1 &
           sleep 25
           PID=$(pgrep -f "Sandglass.app/Sandglass" | head -1 || true)
           echo "App process: ${PID:-none}"
