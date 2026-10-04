@@ -1,0 +1,79 @@
+# Builds the iPhone and watch apps on a Mac, then launches the iPhone app in the Simulator
+# and saves a screenshot, so problems show up before installing on a real device.
+name: Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pick the newest Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+
+      - name: Generate the project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build the iPhone app
+        run: |
+          set -o pipefail
+          xcodebuild -project Sandglass.xcodeproj -scheme Sandglass \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO build | tee build-ios.log | grep -E "error:|warning:|BUILD" || true
+          test "${PIPESTATUS[0]}" -eq 0
+
+      - name: Build the watch app
+        run: |
+          set -o pipefail
+          xcodebuild -project Sandglass.xcodeproj -scheme SandglassWatch \
+            -destination 'generic/platform=watchOS Simulator' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO build | tee build-watch.log | grep -E "error:|warning:|BUILD" || true
+          test "${PIPESTATUS[0]}" -eq 0
+
+      - name: Launch the iPhone app in the Simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          print(next(d["udid"] for runtime, ds in sorted(devices.items(), reverse=True) if "iOS" in runtime
+                     for d in ds if d["name"].startswith("iPhone")))')
+          echo "Simulator $UDID"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          APP=$(find build/Build/Products -maxdepth 2 -name Sandglass.app -path "*iphonesimulator*" | head -1)
+          xcrun simctl install "$UDID" "$APP"
+          xcrun simctl launch --stdout=app-stdout.log --stderr=app-stderr.log "$UDID" com.example.sandglass
+          sleep 12
+          xcrun simctl io "$UDID" screenshot screenshot-launch.png
+          if xcrun simctl spawn "$UDID" launchctl list | grep -q com.example.sandglass; then
+            echo "App is still running after launch"
+          else
+            echo "::error::The app quit or crashed after launch"
+            ls ~/Library/Logs/DiagnosticReports/ || true
+            cp ~/Library/Logs/DiagnosticReports/Sandglass* . 2>/dev/null || true
+            exit 1
+          fi
+
+      - name: Save logs and screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sandglass-results
+          path: |
+            build-*.log
+            app-*.log
+            screenshot-*.png
+            Sandglass*.ips
+          if-no-files-found: ignore
