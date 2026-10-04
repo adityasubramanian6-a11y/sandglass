@@ -1,3 +1,4 @@
+import AppIntents
 import SwiftUI
 
 /// The countdown. While sand runs, the system ticks it every second without waking the app.

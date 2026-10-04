@@ -52,10 +52,12 @@ No Homebrew? Install it first from https://brew.sh (one line in Terminal).
 3. The first time, the iPhone may refuse to open the app with "Untrusted Developer". On the iPhone go to **Settings › General › VPN & Device Management**, tap your Apple ID under **Developer App**, and tap **Trust**.
 4. Press **▶ Run** again. Sandglass opens on your phone.
 
-If your Apple Watch is paired with this iPhone, the watch app installs with it (open the
-**Watch** app on the iPhone › scroll to **Sandglass** › **Install** if it doesn't). To run it on
-the watch directly, pick the **SandglassWatch** scheme and your watch at the top of Xcode and
-press Run.
+If Xcode shows "Failed to show Widget 'com.….widgets'", the scheme at the top is set to
+**SandglassWidgets**. Press OK (the app is already installed), switch the scheme to
+**Sandglass** and run again. Add the widget from the Lock Screen or Home Screen instead.
+
+The Apple Watch app is separate: pick the **SandglassWatch** scheme and your watch at the top
+of Xcode and press Run. Keep the watch unlocked and on its charger the first time.
 
 ## 7. Try it out
 

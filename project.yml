@@ -39,7 +39,6 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
     dependencies:
       - target: SandglassWidgets
-      - target: SandglassWatch
   # Lock Screen Live Activity, Dynamic Island, and Home Screen / Lock Screen widgets.
   SandglassWidgets:
     type: app-extension
@@ -60,7 +59,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.sandglass.widgets
         TARGETED_DEVICE_FAMILY: "1"
-  # Apple Watch app: its own hourglass, turned with the Digital Crown.
+  # Apple Watch app: its own hourglass, flipped with a tap. It stands alone (not bundled
+  # inside the iPhone app), so the iPhone app builds and installs even without a watch.
   SandglassWatch:
     type: application
     platform: watchOS
@@ -75,7 +75,7 @@ targets:
       properties:
         CFBundleDisplayName: Sandglass
         WKApplication: true
-        WKCompanionAppBundleIdentifier: com.example.sandglass
+        WKWatchOnly: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.sandglass.watchkitapp
@@ -83,11 +83,21 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         TARGETED_DEVICE_FAMILY: "4"
 schemes:
-  # The iPhone app with its widgets and watch app, picked at the top of Xcode before pressing Run.
+  # Pick one at the top of Xcode before pressing Run.
+  # The iPhone app with its Lock Screen widgets.
   Sandglass:
     build:
       targets:
         Sandglass: all
+    run:
+      config: Debug
+    archive:
+      config: Release
+  # The Apple Watch app; choose your watch as the destination.
+  SandglassWatch:
+    build:
+      targets:
+        SandglassWatch: all
     run:
       config: Debug
     archive:

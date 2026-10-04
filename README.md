@@ -46,9 +46,10 @@ gravity from your iPhone's motion sensors (CoreMotion fuses the accelerometer an
 ## Apple Watch
 
 The watch app is its own hourglass, with its own timer.
-- **Turn the Digital Crown** to turn the hourglass: half a turn flips it and starts the sand,
-  stopping on its side pauses it. Tapping the glass flips it too.
-- Tilt your wrist and the sand stays level, using the watch's motion sensors.
+- **Tap the hourglass** (or the play button) to turn it over and start the sand. Wrist movement
+  is ignored, so the sand always falls straight down the screen.
+- Settings are short lists: tap Focus, Break or Long break and pick the minutes.
+- It is a separate app: in Xcode choose the **SandglassWatch** scheme and your watch, then Run.
 - Pause, restart and settings buttons sit along the bottom; a tap on the wrist tells you when
   time is up. With your wrist down the countdown keeps going on the always-on screen.
 - The iPhone's Lock Screen banner also shows in the watch's Smart Stack (watchOS 11).

@@ -1,12 +1,11 @@
-import CoreMotion
 import Foundation
 import Observation
 import UserNotifications
 import WatchKit
 
-/// The watch's own hourglass. Same idea as on the iPhone: the sand is the timer and it follows
-/// gravity from the watch's motion sensors. Turning the Digital Crown turns the hourglass, so
-/// half a turn flips it, and stopping it on its side pauses the sand.
+/// The watch's own hourglass. The sand is the timer, as on the iPhone, but it ignores the
+/// watch's motion (a wrist never keeps still): sand always falls down the screen, and a tap
+/// or the play button turns the glass over.
 @MainActor
 @Observable
 final class WatchModel {
@@ -22,18 +21,16 @@ final class WatchModel {
     private(set) var isManuallyPaused = false
     private(set) var lastFinished: Phase?
 
-    /// Bound to the Digital Crown; 2π of crown turns the glass by π.
-    var crown: Double = 0
+    /// How many times the glass has been turned over; each turn rotates it by π.
+    @ObservationIgnored private var turns = 0
 
-    private var targetRotation: Double { crown / 2 }
+    private var targetRotation: Double { Double(turns) * .pi }
     @ObservationIgnored private var flowDirection = 1
     @ObservationIgnored private var isOnSide = false
-    @ObservationIgnored private var lastGravity = Vec.down
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var lastStep: Date?
     @ObservationIgnored private var lastAdvance: Date?
     @ObservationIgnored private var askedForNotifications = false
-    @ObservationIgnored private let motion = CMMotionManager()
     @ObservationIgnored private let defaults = UserDefaults.standard
 
     init() {
@@ -56,11 +53,6 @@ final class WatchModel {
         lastAdvance = nil
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
         refreshStatus()
-
-        if motion.isDeviceMotionAvailable, !motion.isDeviceMotionActive {
-            motion.deviceMotionUpdateInterval = 1.0 / 30.0
-            motion.startDeviceMotionUpdates()
-        }
         guard timer == nil else { return }
         lastStep = Date()
         timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
@@ -74,7 +66,6 @@ final class WatchModel {
     func suspend() {
         timer?.invalidate()
         timer = nil
-        motion.stopDeviceMotionUpdates()
         lastAdvance = Date()
         save()
         scheduleNotification()
@@ -84,7 +75,8 @@ final class WatchModel {
 
     func flip() {
         WKInterfaceDevice.current().play(.click)
-        crown += 2 * .pi
+        isManuallyPaused = false
+        turns += 1
     }
 
     func togglePause() {
@@ -118,18 +110,12 @@ final class WatchModel {
         lastStep = now
         clock += dt
 
-        rotation += (targetRotation - rotation) * (1 - exp(-dt * 10))
+        // Gravity always points down the screen; only the glass turns, when it is flipped.
+        rotation += (targetRotation - rotation) * (1 - exp(-dt * 8))
+        if abs(targetRotation - rotation) < 0.001 { rotation = targetRotation }
+        localGravity = Vec.down.rotated(by: -rotation)
 
-        // On the wrist the screen mostly faces up, leaving little gravity in its plane;
-        // then keep the last direction so the sand carries on falling "down" the screen.
-        if let g = motion.deviceMotion?.gravity {
-            let screen = Vec(x: g.x, y: -g.y)
-            if screen.length > 0.4 { lastGravity = screen.normalized }
-        }
-        let target = lastGravity.rotated(by: -rotation)
-        let smoothed = localGravity + (target - localGravity) * (1 - exp(-dt * 12))
-        localGravity = smoothed.length > 0.2 ? smoothed.normalized : target
-
+        // Briefly true while the glass is mid-turn, so the sand waits until it lands.
         isOnSide = abs(localGravity.y) < 0.42
         if !isOnSide {
             let direction = localGravity.y > 0 ? 1 : -1
@@ -199,7 +185,7 @@ final class WatchModel {
         guard status == .running else { return }
         let content = UNMutableNotificationContent()
         content.title = phase == .focus ? "Focus session complete" : "Break's over"
-        content.body = phase == .focus ? "Turn the crown to flip the hourglass for a break." : "Turn the crown to start focusing again."
+        content.body = phase == .focus ? "Tap the hourglass to start your break." : "Tap the hourglass to start focusing again."
         content.sound = .default
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, sourceSand * phaseSeconds), repeats: false)
         center.add(UNNotificationRequest(identifier: "sandglass.watch.finished", content: content, trigger: trigger))
@@ -212,7 +198,7 @@ final class WatchModel {
         defaults.set(phase.rawValue, forKey: "watch.phase")
         defaults.set(completedFocus, forKey: "watch.completed")
         defaults.set(flowDirection, forKey: "watch.direction")
-        defaults.set(crown, forKey: "watch.crown")
+        defaults.set(turns, forKey: "watch.turns")
         defaults.set(isManuallyPaused, forKey: "watch.paused")
         defaults.set(isOnSide, forKey: "watch.onSide")
         defaults.set(lastAdvance?.timeIntervalSince1970, forKey: "watch.lastAdvance")
@@ -225,7 +211,7 @@ final class WatchModel {
         phase = Phase(rawValue: defaults.string(forKey: "watch.phase") ?? "") ?? .focus
         completedFocus = defaults.integer(forKey: "watch.completed")
         flowDirection = defaults.integer(forKey: "watch.direction") < 0 ? -1 : 1
-        crown = defaults.double(forKey: "watch.crown")
+        turns = defaults.integer(forKey: "watch.turns")
         rotation = targetRotation
         localGravity = Vec.down.rotated(by: -rotation)
         isManuallyPaused = defaults.bool(forKey: "watch.paused")
